@@ -35,12 +35,24 @@ namespace RemoteDownload
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1305:指定 IFormatProvider", Justification = "<挂起>")]
         static void PostUri(string uri)
         {
-            uri = "https://github.com/Kikyou1997/LaniakeaProxy.git";
             using var payload = new StringContent(uri);
-            var postURI = new Uri($"https://{Setting.MainSetting.host}/api/record");
+
+            var postStr = $"https://{Setting.MainSetting.host}/api/record";
+            if (!string.IsNullOrEmpty(Setting.MainSetting.key))
+            {
+                postStr += $"?key={Setting.MainSetting.key}";
+            }
+            var postURI = new Uri(postStr);
             PrintURL(postURI.ToString());
             var response = client.PostAsync(postURI, payload).Result.Content.ReadAsStringAsync().Result;
             //{"id":262,"requestUrl":"https://github.com/Kikyou1997/LaniakeaProxy/archive/master.zip","fileUrl":"","taskID":"9976c8fd823d4e7ab8ff33890ffa6367"}
+            
+            if (response.Contains("Wrong"))
+            {
+                ConsoleWriteLineWithColor(response,ConsoleColor.Red);
+                Console.WriteLine();
+                return;
+            }
             PrintResponse(response);
             var id = ((JObject)JsonConvert.DeserializeObject(response))["id"];
             PrintResult(id.ToString());
@@ -83,14 +95,14 @@ namespace RemoteDownload
             while (File.Exists(filepath))
             {
                 Console.WriteLine("file is already exists");
-                ConsoleWriteLineWithColor(filepath,ConsoleColor.Red);
+                ConsoleWriteLineWithColor(filepath, ConsoleColor.Red);
                 Console.WriteLine("please input new file name");
                 Console.WriteLine("the file will be created in the desktop");
                 filename = Console.ReadLine();
                 filepath = Path.Combine(desktopDirectory, filename);
             }
 
-            Console.WriteLine("Download to");
+            Console.WriteLine("Downloading to");
             PrintResult(filepath);
 
             var bs = client.GetAsync(new Uri(fileUrl)).Result.Content.ReadAsByteArrayAsync().Result;
@@ -104,21 +116,20 @@ namespace RemoteDownload
 
             Console.WriteLine("Download success");
             PrintResult(uri);
+            Console.WriteLine("Download to");
+            PrintResult(filepath);
             Console.WriteLine("high speed url");
             PrintResult(fileUrl);
-            Console.WriteLine("Just Input URI :)");
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1307:指定 StringComparison", Justification = "<挂起>")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1303:请不要将文本作为本地化参数传递", Justification = "<挂起>")]
-        static void Main(string[] args)
+        static void Main()
         {
-
             Setting.Load(ref Setting.MainSetting);
-
-            Console.WriteLine("Just Input URI :)");
             while (true)
             {
+                Console.WriteLine("Just Input URI :)");
                 var str = Console.ReadLine();
                 var pa = str.Split(" ");
                 if (pa.Length > 1)
@@ -126,7 +137,9 @@ namespace RemoteDownload
                     switch (pa[0])
                     {
                         case "key":
-
+                            Setting.MainSetting.key = pa[1];
+                            Console.WriteLine($"Setting key {pa[1]} success");
+                            Setting.Save(Setting.MainSetting);
                             break;
                     }
 
@@ -135,7 +148,7 @@ namespace RemoteDownload
                 {
                     if (!str.Contains("http"))
                     {
-                        Console.WriteLine("uri should contains http");
+                        Console.WriteLine("URI should contains \"http\"");
                     }
                     else
                     {
@@ -148,13 +161,9 @@ namespace RemoteDownload
     class Setting
     {
         public static Setting MainSetting = new Setting();
-        public string key;
+        public string key = "";
         public string host = "githubproxy.backend.117503445.top";
         public bool AutoClearConsole = true;
-        public Setting()
-        {
-
-        }
         public static void Load(ref Setting setting)
         {
             string json;
